@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MovieBox Pro - Nunua & Pakua</title>
+    <style>
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #000; color: white; margin: 0; padding: 10px; }
+        header { text-align: center; padding: 15px 0; background: rgba(0,0,0,0.95); position: sticky; top: 0; z-index: 100; }
+        h1 { color: #e50914; letter-spacing: 2px; font-size: 1.5rem; margin-bottom: 10px; }
+
+        #searchBar { width: 85%; max-width: 400px; padding: 12px; background: #222; color: white; border: 1px solid #444; border-radius: 25px; outline: none; text-align: center; margin-bottom: 10px; }
+        .filter-container { overflow-x: auto; white-space: nowrap; padding: 5px 0; margin-bottom: 10px; }
+        .filter-btn { background: none; color: #888; border: none; padding: 8px 15px; cursor: pointer; font-size: 0.85rem; font-weight: bold; text-transform: uppercase; }
+        .filter-btn.active { color: #e50914; border-bottom: 2px solid #e50914; }
+
+        .movie-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; }
+        .movie-card { background: #141414; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; border: 1px solid #222; }
+        
+        .media-wrapper { position: relative; aspect-ratio: 2/3; cursor: pointer; }
+        .media-wrapper img { width: 100%; height: 100%; object-fit: cover; }
+        
+        .price-tag { position: absolute; top: 8px; left: 8px; background: #e50914; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; z-index: 5; }
+
+        .movie-info { padding: 10px; flex-grow: 1; display: flex; flex-direction: column; }
+        .category-label { color: #e50914; font-size: 0.6rem; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; display: block; }
+        .movie-info h3 { font-size: 0.85rem; margin: 0 0 10px 0; color: #fff; line-height: 1.2; height: 32px; overflow: hidden; }
+
+        .btn-group { display: flex; flex-direction: column; gap: 6px; margin-top: auto; }
+        .order-btn { background: #25d366; color: white; text-decoration: none; font-size: 0.75rem; padding: 8px; border-radius: 5px; font-weight: bold; text-align: center; }
+        .download-btn { background: #333; color: white; border: 1px solid #555; font-size: 0.75rem; padding: 8px; border-radius: 5px; font-weight: bold; cursor: pointer; }
+        
+        /* Share Button Style */
+        .share-btn { background: transparent; color: #aaa; border: 1px solid #444; font-size: 0.7rem; padding: 5px; border-radius: 5px; cursor: pointer; margin-top: 5px; display: flex; align-items: center; justify-content: center; gap: 5px; }
+        .share-btn:hover { color: white; border-color: white; }
+
+        #videoModal, #passwordModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 9999; align-items: center; justify-content: center; }
+        .modal-content { width: 85%; max-width: 450px; background: #181818; padding: 25px; border-radius: 15px; text-align: center; position: relative; }
+        .pass-input { width: 90%; padding: 12px; margin: 15px 0; border-radius: 5px; border: 1px solid #444; background: #000; color: white; text-align: center; font-size: 1.1rem; }
+        .close-btn { position: absolute; top: 10px; right: 15px; color: #666; cursor: pointer; font-size: 24px; }
+        video { width: 100%; border-radius: 8px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>SINEMA KIGANJANI</h1>
+        <input type="text" id="searchBar" placeholder="Tafuta movie..." onkeyup="renderMovies()">
+        
+        <div class="filter-container">
+            <button class="filter-btn active" onclick="filterCat('all', this)">Zote</button>
+            <button class="filter-btn" onclick="filterCat('Mpya', this)">Mpya</button>
+            <button class="filter-btn" onclick="filterCat('Action', this)">Action</button>
+            <button class="filter-btn" onclick="filterCat('Kivita', this)">Kivita</button>
+            <button class="filter-btn" onclick="filterCat('Kiafrika', this)">Kiafrika</button>
+        </div>
+    </header>
+
+    <div class="movie-container" id="movieList"></div>
+
+    <div id="videoModal">
+        <div class="modal-content" style="max-width: 800px; background: transparent; border: none;">
+            <span class="close-btn" onclick="closeModal('videoModal')" style="color: white; top: -35px;">&times; Funga</span>
+            <video id="mainPlayer" controls></video>
+        </div>
+    </div>
+
+    <div id="passwordModal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal('passwordModal')">&times;</span>
+            <h2 style="color: #e50914;">Ingiza Password</h2>
+            <input type="text" id="passInput" class="pass-input" placeholder="Weka hapa...">
+            <button class="order-btn" id="confirmBtn" style="width: 100%; border: none; cursor: pointer; font-size: 1rem;">DOWNLOAD SASA</button>
+        </div>
+    </div>
+
+    <script>
+        const myPhoneNumber = "255716276336";
+        const websiteLink = window.location.href; // Inachukua link ya tovuti yako moja kwa moja
+        let currentCat = 'all';
+
+        const moviesData = [
+            { 
+                category: "Kivita", 
+                title: "Predator Badlands", 
+                price: "Tsh 1,000",
+                poster: "https://www.dropbox.com/scl/fi/51s6lht6s3br79wl52x9v/333646746db9d3ab892c3b571c254a76.jpg?rlkey=gk4p7c5e4p4d5vpsd33883kyd&st=bsjuo83u&raw=1", 
+                trailer: "https://www.dropbox.com/scl/fi/ua1ob30hufe1uj3lp3ki2/CLIP-BADLAND-X4.mp4?rlkey=61sof24o8cu6fbtdxdlhj7mgj&st=xlzhug5w&dl=1",
+                downloadLink: "#", 
+                password: "990" 
+            },
+            { 
+                category: "Action", 
+                title: "John Wick 4", 
+                price: "Tsh 1,000",
+                poster: "https://via.placeholder.com/400x600?text=Action", 
+                trailer: "",
+                downloadLink: "#", 
+                password: "111" 
+            }
+        ];
+
+        function renderMovies() {
+            const container = document.getElementById('movieList');
+            const search = document.getElementById('searchBar').value.toLowerCase();
+            container.innerHTML = "";
+
+            const filtered = moviesData.filter(m => {
+                const matchSearch = m.title.toLowerCase().includes(search);
+                const matchCat = currentCat === 'all' || m.category === currentCat;
+                return matchSearch && matchCat;
+            });
+
+            filtered.forEach(movie => {
+                const waLink = `https://wa.me/${myPhoneNumber}?text=Habari, nataka kulipia movie: ${movie.title} (${movie.price})`;
+                
+                container.innerHTML += `
+                    <div class="movie-card">
+                        <div class="media-wrapper" onclick="openTrailer('${movie.trailer}')">
+                            <div class="price-tag">${movie.price}</div>
+                            <img src="${movie.poster}">
+                        </div>
+                        <div class="movie-info">
+                            <span class="category-label">${movie.category}</span>
+                            <h3>${movie.title}</h3>
+                            <div class="btn-group">
+                                <a href="${waLink}" class="order-btn" target="_blank">NUNUA</a>
+                                <button class="download-btn" onclick="askPassword('${movie.password}', '${movie.downloadLink}')">DOWNLOAD</button>
+                                <button class="share-btn" onclick="shareMovie('${movie.title}')">
+                                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92c0-1.61-1.31-2.92-2.92-2.92z"/></svg>
+                                    Share kwa Rafiki
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // --- Mfumo wa Kushare ---
+        function shareMovie(title) {
+            const shareText = encodeURIComponent(`Cheki movie hii kali inaitwa *${title}*! \n\nIone hapa kwenye tovuti yetu: \n${websiteLink}`);
+            const whatsappUrl = `https://wa.me/?text=${shareText}`;
+            window.open(whatsappUrl, '_blank');
+        }
+
+        function filterCat(cat, btn) {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentCat = cat;
+            renderMovies();
+        }
+
+        function openTrailer(url) {
+            if(!url) return alert("Trela haipo kwa sasa!");
+            const m = document.getElementById('videoModal'), p = document.getElementById('mainPlayer');
+            p.src = url; m.style.display = 'flex'; p.play();
+        }
+
+        function askPassword(correct, link) {
+            const m = document.getElementById('passwordModal'), input = document.getElementById('passInput'), btn = document.getElementById('confirmBtn');
+            m.style.display = 'flex';
+            input.value = "";
+            btn.onclick = () => {
+                if(input.value.trim() === correct) { window.location.href = link; closeModal('passwordModal'); }
+                else alert("Password siyo sahihi!");
+            };
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).style.display = 'none';
+            if(id === 'videoModal') { document.getElementById('mainPlayer').pause(); document.getElementById('mainPlayer').src = ""; }
+        }
+
+        renderMovies();
+    </script>
+</body>
+</html>
